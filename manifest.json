@@ -1,1 +1,10 @@
-{"name":"SH TOURNAMENT SYLHET","short_name":"SH Tournament","description":"Free Fire community tournament portal","start_url":"./","display":"standalone","background_color":"#080d1a","theme_color":"#090f1f","icons":[]}
+{
+  "name": "SH TOURNAMENT SYLHET",
+  "short_name": "SH Tournament",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#080d19",
+  "theme_color": "#0b1020",
+  "description": "SH TOURNAMENT SYLHET Free Fire Player Panel",
+  "icons": []
+}
