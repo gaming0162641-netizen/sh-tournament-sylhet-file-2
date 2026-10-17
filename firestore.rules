@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['uid','displayName','email','createdAt'])
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+    match /publicProfiles/{uid} {
+      allow read: if true;
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['displayName','gameName','avatarUrl','updatedAt']);
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+    match /matches/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
+    match /results/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
+    match /leaderboard/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
+    match /announcements/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
+    match /matchJoins/{id} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid','matchId','gameName','createdAt','status'])
+        && request.resource.data.status == 'pending';
+      allow read: if (signedIn() && resource.data.uid == request.auth.uid) || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+    match /transactions/{id} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid','type','amount','method','accountNumber','createdAt','status'])
+        && request.resource.data.type in ['deposit','withdraw']
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.status == 'pending';
+      allow read: if (signedIn() && resource.data.uid == request.auth.uid) || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
