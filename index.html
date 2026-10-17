@@ -48,7 +48,48 @@ function renderMatches(){const target=$('allMatches'),featured=$('featuredMatche
 async function loadMatches(){if(!db){$('matchStatus').textContent='Firebase offline';return}try{const q=query(collection(db,'matches'),where('status','==','published'),limit(20));const snap=await getDocs(q);matches=snap.docs.map(d=>({id:d.id,...d.data()}));renderMatches()}catch(e){$('matchStatus').textContent='Database rules';$('allMatches').innerHTML='<div class="empty" style="grid-column:1/-1"><strong>ম্যাচ লোড করা যায়নি</strong>Firebase Firestore rules এবং matches collection যাচাই করো।</div>';console.error(e)}}
 function updateUserUI(user){currentUser=user;$('topUser').textContent=user?(user.displayName||user.email.split('@')[0]):'Player';$('accountState').textContent=user?'Active':'Guest';$('profileName').textContent=user?(user.displayName||'Player'):'Guest Player';$('profileEmail').textContent=user?user.email:'লগইন করা হয়নি';$('profileStatus').textContent=user?'Signed in':'Guest';$('profileUid').textContent=user?user.uid.slice(0,10)+'…':'—';$('profileInitial').textContent=user?(user.displayName||user.email||'P').charAt(0).toUpperCase():'P';$('logoutBtn').disabled=!user;$('logoutBtn').style.opacity=user?'1':'.45';}
 $('logoutBtn').addEventListener('click',async()=>{if(!auth||!currentUser){toast('তুমি এখন লগইন করা নেই');return}try{await signOut(auth);toast('Logout হয়েছে')}catch(e){toast(e.message)}});
-$('authForm').addEventListener('submit',async ev=>{ev.preventDefault();if(!auth){$('authMessage').textContent='Firebase initialize হয়নি। Internet ও config যাচাই করো।';return}const email=$('email').value.trim(),password=$('password').value,name=$('playerName').value.trim();$('authSubmit').disabled=true;$('authSubmit').textContent='Please wait…';try{if(authMode==='signup'){if(!name){throw new Error('Player Name লিখো।')}const cred=await createUserWithEmailAndPassword(auth,email,password);await updateProfile(cred.user,{displayName:name});await setDoc(doc(db,'users',cred.user.uid),{uid:cred.user.uid,displayName:name,email:email,role:'player',createdAt:serverTimestamp()});$('authMessage').textContent='অ্যাকাউন্ট তৈরি হয়েছে!';toast('Welcome to SH Tournament!');showTab('profile')}else{await signInWithEmailAndPassword(auth,email,password);$('authMessage').textContent='Login successful!';toast('Login successful');showTab('home')}}catch(e){$('authMessage').textContent=({ 'auth/email-already-in-use':'এই ইমেইলে আগে অ্যাকাউন্ট তৈরি হয়েছে।','auth/invalid-credential':'ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।','auth/weak-password':'আরও শক্তিশালী পাসওয়ার্ড দাও।','auth/invalid-email':'সঠিক ইমেইল লিখো।','permission-denied':'Firestore rules অনুমতি দিচ্ছে না—Firebase Console-এ rules যাচাই করো।'}[e.code]||e.message||'কাজটি সম্পন্ন হয়নি।');}finally{$('authSubmit').disabled=false;$('authSubmit').textContent=authMode==='signup'?'Create Account':'Login'}});
-try{app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);$('authMessage').textContent='Firebase প্রস্তুত। Login বা Create Account করো।';onAuthStateChanged(auth,user=>{updateUserUI(user);if(user){getDoc(doc(db,'users',user.uid)).catch(()=>{});} });loadMatches()}catch(e){$('authMessage').textContent='Firebase connection failed: '+e.message;$('matchStatus').textContent='Firebase error'}
+$('authForm').addEventListener('submit',async ev=>{ev.preventDefault();if(!auth){$('authMessage').textContent='Firebase initialize হয়নি। Internet ও config যাচাই করো।';return}const email=$('email').value.trim(),password=$('password').value,name=$('playerName').value.trim();$('authSubmit').disabled=true;$('authSubmit').textContent='Please wait…';try{if(authMode==='signup'){if(!name){throw new Error('Player Name লিখো।')}const cred=await createUserWithEmailAndPassword(auth,email,password);await updateProfile(cred.user,{displayName:name});await setDoc(doc(db,'users',cred.user.uid),{uid:cred.user.uid,displayName:name,email:email,role:'player',createdAt:serverTimestamp()});$('authMessage').textContent='অ্যাকাউন্ট তৈরি হয়েছে!';toast('Welcome to SH Tournament!');showTab('profile')}else{await signInWithEmailAndPassword(auth,email,password);$('authMessage').textContent='Login successful!';toast('Login successful');showTab('home')}}catch(e){$('authMessage').textContent=({ 'auth/email-already-in-use':'এই ইমেইলে আগে অ্যাকাউন্ট তৈরি হয়েছে। Login করো।','auth/invalid-credential':'ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।','auth/weak-password':'আরও শক্তিশালী পাসওয়ার্ড দাও।','auth/invalid-email':'সঠিক ইমেইল লিখো।','auth/network-request-failed':'Internet সংযোগ পরীক্ষা করে আবার চেষ্টা করো।','permission-denied':'Firestore rules অনুমতি দিচ্ছে না—Firebase Console-এ Rules যাচাই করো।'}[e.code]||e.message||'কাজটি সম্পন্ন হয়নি।');}finally{$('authSubmit').disabled=false;$('authSubmit').textContent=authMode==='signup'?'Create Account':'Login'}});
+async function ensurePlayerProfile(user) {
+  const userRef = doc(db, 'users', user.uid);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) {
+    await setDoc(userRef, {
+      uid: user.uid,
+      displayName: user.displayName || (user.email ? user.email.split('@')[0] : 'Player'),
+      email: user.email || '',
+      role: 'player',
+      createdAt: serverTimestamp()
+    });
+  }
+}
+
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  $('authMessage').textContent = 'Firebase প্রস্তুত। Login বা Create Account করো।';
+  onAuthStateChanged(auth, async (user) => {
+    updateUserUI(user);
+    if (!user) return;
+    try {
+      await ensurePlayerProfile(user);
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      if (snap.exists()) {
+        const data = snap.data();
+        $('profileName').textContent = data.displayName || user.displayName || 'Player';
+        $('profileEmail').textContent = user.email || '';
+        $('profileStatus').textContent = 'Signed in';
+        $('authMessage').textContent = 'Login হয়েছে এবং Player Profile প্রস্তুত।';
+      }
+    } catch (e) {
+      console.error('Player profile error:', e);
+      $('authMessage').textContent = 'Profile তৈরি হয়নি: ' + (e.code || e.message || 'Unknown error');
+    }
+  });
+  loadMatches();
+} catch (e) {
+  $('authMessage').textContent = 'Firebase connection failed: ' + e.message;
+  $('matchStatus').textContent = 'Firebase error';
+}
 </script>
 </body></html>
