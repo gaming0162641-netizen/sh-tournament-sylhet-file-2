@@ -33,9 +33,15 @@ nav,.bottom-nav{background:rgba(3,9,20,.97);border-top:1px solid #123b58;backdro
 .official-rules li{font-size:13px;line-height:1.65;margin:0 0 8px;color:var(--muted)}
 .official-rules li b{color:var(--text)}
 .paid-payment-box{margin:12px 0;padding:13px;border:1px solid rgba(255,190,80,.45);border-radius:13px;background:rgba(255,190,80,.07);font-size:13px}.paid-payment-box p{line-height:1.55}.payment-methods{display:grid;gap:7px;margin:8px 0}.payment-method{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px;border-radius:8px;background:rgba(0,0,0,.12);flex-wrap:wrap}.copy-payment-btn{border:0;border-radius:8px;padding:7px 10px;cursor:pointer;font-weight:700}
+
+.quick-exit-nav{position:fixed;z-index:9999;right:10px;top:76px;display:flex;gap:7px;flex-direction:column}
+.quick-exit-nav button{border:1px solid #145071;border-radius:999px;padding:9px 12px;background:#07182b;color:#eaf8ff;font-weight:800;box-shadow:0 4px 14px #0005;min-height:40px}
+.quick-exit-nav button:first-child{background:linear-gradient(135deg,#ffe34a,#ffb900);color:#10131b;border:0}
+@media(max-width:600px){.quick-exit-nav{top:auto;bottom:82px;right:9px}.quick-exit-nav button{padding:8px 10px;font-size:12px}}
 </style>
 </head>
 <body>
+<div class="quick-exit-nav" aria-label="Page navigation"><button type="button" onclick="showTab('home')">🏠 Home</button><button type="button" onclick="goPanelBack()">⬅ Back</button></div>
 <div class="wrap">
 <header class="top"><div class="brand"><div class="logo">SH</div><div><h1>SH TOURNAMENT SYLHET</h1><p>PLAYER ARENA · FREE FIRE</p></div></div><button class="avatar" onclick="showTab('profile')">👤 <span id="topUser">Player</span></button></header>
 <main>
@@ -88,7 +94,9 @@ import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, s
 const firebaseConfig={apiKey:"AIzaSyDbGj5R-atYU_jLtHEK37tLskiPxczjwe8",authDomain:"sh-tournament-sylhet.firebaseapp.com",projectId:"sh-tournament-sylhet",storageBucket:"sh-tournament-sylhet.firebasestorage.app",messagingSenderId:"282457727665",appId:"1:282457727665:web:5571f901ff48a2fa06b890",measurementId:"G-HNVYY0MQ1E"};
 let app,auth,db,currentUser=null,authMode="login",matches=[],joinedMatchIds=new Set();
 const $=id=>document.getElementById(id);
-window.showTab=(tab)=>{document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));$(tab)?.classList.remove('hidden');document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));window.scrollTo({top:0,behavior:'smooth'});if(tab==='matches')loadMatches();renderSupport();if(tab!=='home')$('supportBox').classList.add('hidden');};
+let previousPanelTab='home',currentPanelTab='home';
+window.showTab=(tab)=>{if(!tab||!$(tab))return;if(tab!==currentPanelTab){previousPanelTab=currentPanelTab;currentPanelTab=tab;}document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));$(tab)?.classList.remove('hidden');document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));window.scrollTo({top:0,behavior:'smooth'});if(tab==='matches')loadMatches();renderSupport();if(tab!=='home')$('supportBox').classList.add('hidden');};
+window.goPanelBack=()=>{const target=(previousPanelTab&&previousPanelTab!==currentPanelTab&&$(previousPanelTab))?previousPanelTab:'home';previousPanelTab='home';window.showTab(target);};
 let supportEnabled=true,supportEmailValue='',supportTelegramValue='';
 async function loadSupportSettings(){if(!db)return;try{const snap=await getDoc(doc(db,'settings','support'));if(snap.exists()){const s=snap.data();supportEnabled=s.enabled!==false;supportEmailValue=s.email||'';supportTelegramValue=s.telegram||'';}renderSupport()}catch(e){console.warn('Support settings could not load',e.code);renderSupport()}}
 function renderSupport(){const fab=$('supportFab');const homeVisible=!$('home').classList.contains('hidden');fab.classList.toggle('hidden',!homeVisible||!supportEnabled);$('supportEmail').href=supportEmailValue&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supportEmailValue)?'mailto:'+supportEmailValue:'#';$('supportEmail').style.opacity=supportEmailValue?'1':'.5';$('supportTelegram').href=supportTelegramValue&&/^https:\/\/(t\.me|telegram\.me)\//i.test(supportTelegramValue)?supportTelegramValue:'#';$('supportTelegram').style.opacity=supportTelegramValue?'1':'.5';}
