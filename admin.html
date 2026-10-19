@@ -65,4 +65,14 @@ async function loadPaymentForm(){try{const s=await getDoc(doc(db,'settings','pay
 document.getElementById('paymentForm').addEventListener('submit',async e=>{e.preventDefault();if(!isAdmin)return;const bkash=document.getElementById('payBkash').value.trim(),nagad=document.getElementById('payNagad').value.trim(),rocket=document.getElementById('payRocket').value.trim(),instructions=document.getElementById('payInstructions').value.trim();if(!bkash&&!nagad&&!rocket){say('paymentMessage','কমপক্ষে একটি নম্বর দাও।');return}try{await setDoc(doc(db,'settings','payment'),{bkash,nagad,rocket,instructions,updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});say('paymentMessage','নম্বর Save হয়েছে। User Panel refresh করো।')}catch(e){say('paymentMessage','Save হয়নি: '+(e.code||e.message)+' — Firestore Rules দেখো।')}});
 document.getElementById('paymentReload').addEventListener('click',loadPaymentForm);
 try{const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);say('loginMessage','Firebase প্রস্তুত। Admin account দিয়ে login করো।');onAuthStateChanged(auth,checkRole)}catch(e){showLogin('Firebase init error: '+e.message)}
-</script></body></html>
+</script>
+<style id="globalNavigationFix">
+#globalNavFix{position:fixed;z-index:99999;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:9px;background:rgba(8,13,25,.96);border:1px solid #344665;border-radius:16px;box-shadow:0 8px 30px #0008;backdrop-filter:blur(12px)}#globalNavFix button{border:1px solid #3c5276;border-radius:10px;padding:10px 14px;font-weight:700;color:#fff;background:#182844;cursor:pointer}#globalNavFix .home{background:#126b4a}#globalNavFix .exit{background:#8a2637}body{padding-bottom:90px!important}
+</style>
+<div id="globalNavFix" aria-label="পেজ নেভিগেশন"><button type="button" class="home" onclick="location.href='index.html'">🏠 Home</button><button type="button" onclick="if(history.length>1){history.back()}else{location.href='index.html'}">⬅️ Back</button><button type="button" class="exit" id="globalExitFix">🚪 Logout / Exit</button></div>
+<script type="module" id="globalNavigationFixScript">
+import {getAuth,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+const navAuth=getAuth();document.getElementById('globalExitFix').addEventListener('click',async()=>{try{if(navAuth.currentUser){await signOut(navAuth)} }catch(e){console.warn('Logout:',e)} location.href='index.html';});
+</script>
+
+</body></html>
