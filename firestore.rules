@@ -2,48 +2,53 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
-    function isAdmin() {
-      return signedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    function admin() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    function publishedMatch(matchId) {
+      return exists(/databases/$(database)/documents/matches/$(matchId)) &&
+        get(/databases/$(database)/documents/matches/$(matchId)).data.status == 'published';
     }
     match /users/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
-      allow create: if isOwner(uid)
-        && request.resource.data.keys().hasOnly(['uid','displayName','email','createdAt'])
-        && request.resource.data.uid == request.auth.uid;
-      allow update, delete: if isAdmin();
+      allow create: if signedIn() && request.auth.uid == uid && request.resource.data.role == 'player';
+      allow read: if signedIn() && (request.auth.uid == uid || admin());
+      allow update: if admin() || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role);
+      allow delete: if admin();
     }
-    match /publicProfiles/{uid} {
-      allow read: if true;
-      allow create, update: if isOwner(uid)
-        && request.resource.data.keys().hasOnly(['displayName','gameName','avatarUrl','updatedAt']);
-      allow delete: if isOwner(uid) || isAdmin();
+    match /matches/{matchId} {
+      allow read: if signedIn() && (resource.data.status == 'published' || admin());
+      allow create, update, delete: if admin();
     }
-    match /matches/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
-    match /results/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
-    match /leaderboard/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
-    match /announcements/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
-    match /matchJoins/{id} {
-      allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.keys().hasOnly(['uid','matchId','gameName','createdAt','status'])
-        && request.resource.data.status == 'pending';
-      allow read: if (signedIn() && resource.data.uid == request.auth.uid) || isAdmin();
-      allow update, delete: if isAdmin();
+    match /joins/{joinId} {
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid &&
+        request.resource.data.matchId is string && publishedMatch(request.resource.data.matchId) &&
+        (request.resource.data.status == 'joined' || request.resource.data.status == 'payment_pending');
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || admin());
+      allow update, delete: if admin();
     }
-    match /transactions/{id} {
-      allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.keys().hasOnly(['uid','type','amount','method','accountNumber','createdAt','status'])
-        && request.resource.data.type in ['deposit','withdraw']
-        && request.resource.data.amount is number
-        && request.resource.data.amount > 0
-        && request.resource.data.status == 'pending';
-      allow read: if (signedIn() && resource.data.uid == request.auth.uid) || isAdmin();
-      allow update, delete: if isAdmin();
+    match /paymentRequests/{requestId} {
+      allow create: if signedIn() &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.transactionId is string &&
+        request.resource.data.transactionId.size() >= 4 &&
+        request.resource.data.transactionId.size() <= 100 &&
+        request.resource.data.matchId is string &&
+        request.resource.data.amount is number &&
+        request.resource.data.method in ['bKash', 'Nagad', 'Rocket'] &&
+        publishedMatch(request.resource.data.matchId) &&
+        get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.entryFee is number &&
+        get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.entryFee > 0 &&
+        request.resource.data.amount == get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.entryFee;
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || admin());
+      allow update, delete: if admin();
     }
+    match /results/{id} { allow read: if signedIn(); allow create, update, delete: if admin(); }
+    match /leaderboard/{id} { allow read: if signedIn(); allow create, update, delete: if admin(); }
+    match /announcements/{id} { allow read: if signedIn(); allow create, update, delete: if admin(); }
+    match /settings/{id} { allow read: if signedIn(); allow write: if admin(); }
     match /{document=**} { allow read, write: if false; }
   }
 }
