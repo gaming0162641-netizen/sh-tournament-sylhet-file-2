@@ -24,7 +24,7 @@ service cloud.firestore {
     match /joins/{joinId} {
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid &&
         request.resource.data.matchId is string && publishedMatch(request.resource.data.matchId) &&
-        (request.resource.data.status == 'joined' || request.resource.data.status == 'payment_pending');
+        request.resource.data.status == 'joined';
       allow read: if signedIn() && (resource.data.uid == request.auth.uid || admin());
       allow update, delete: if admin();
     }
@@ -36,12 +36,9 @@ service cloud.firestore {
         request.resource.data.transactionId.size() >= 4 &&
         request.resource.data.transactionId.size() <= 100 &&
         request.resource.data.matchId is string &&
-        request.resource.data.amount is number &&
+        request.resource.data.amount is number && request.resource.data.amount > 0 &&
         request.resource.data.method in ['bKash', 'Nagad', 'Rocket'] &&
-        publishedMatch(request.resource.data.matchId) &&
-        get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.entryFee is number &&
-        get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.entryFee > 0 &&
-        request.resource.data.amount == get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.entryFee;
+        publishedMatch(request.resource.data.matchId);
       allow read: if signedIn() && (resource.data.uid == request.auth.uid || admin());
       allow update, delete: if admin();
     }
